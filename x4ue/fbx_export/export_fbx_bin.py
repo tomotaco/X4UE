@@ -2540,16 +2540,32 @@ def fbx_animations(scene_data):
             org_act = ob.animation_data.action
             path_resolve = ob.path_resolve
 
+            export_mode = bpy.context.scene.x4ue_mode_export_animations
+            print("export_mode->", export_mode)
+
             for act in bpy.data.actions:
-                # For now, *all* paths in the action must be valid for the object, to validate the action.
-                # Unless that action was already assigned to the object!
-                if act != org_act and not validate_actions(act, path_resolve):
-                    continue
-                ob.animation_data.action = act
-                frame_start, frame_end = act.frame_range  # sic!
-                add_anim(animations, animated,
-                         fbx_animations_do(scene_data, (ob, act), frame_start, frame_end, True,
-                                           objects={ob_obj}, force_keep=True))
+
+                export_action = False
+
+                if export_mode == "ALL":
+                    export_action = True
+
+                if export_mode == "SELECT":
+                    if len(act.keys()) > 0:
+                        if "x4ue_export" in act.keys():
+                            if act["x4ue_export"]:
+                                export_action = True
+
+                if export_action:
+	                # For now, *all* paths in the action must be valid for the object, to validate the action.
+	                # Unless that action was already assigned to the object!
+	                if act != org_act and not validate_actions(act, path_resolve):
+	                    continue
+	                ob.animation_data.action = act
+	                frame_start, frame_end = act.frame_range  # sic!
+	                add_anim(animations, animated,
+	                         fbx_animations_do(scene_data, (ob, act), frame_start, frame_end, True,
+	                                           objects={ob_obj}, force_keep=True))
                 # Ugly! :/
                 if pbones_matrices is not ...:
                     for pbo, mat in zip(ob.pose.bones, pbones_matrices):
@@ -3166,8 +3182,12 @@ def fbx_header_elements(root, scene_data, time=None):
     elem_data_single_int32(elem, b"Second", time.second)
     elem_data_single_int32(elem, b"Millisecond", time.microsecond // 1000)
 
-    elem_data_single_string_unicode(header_ext, b"Creator", "%s - %s - %d.%d.%d"
-                                                % (app_name, app_ver, addon_ver[0], addon_ver[1], addon_ver[2]))
+    print("versions")
+    print (app_name, app_ver, addon_ver)
+    print(type(app_name), type(app_ver))
+
+    elem_data_single_string_unicode(header_ext, b"Creator", "%s - %s"
+                                                % (app_name, app_ver))
 
     # 'SceneInfo' seems mandatory to get a valid FBX file...
     # TODO use real values!
@@ -3212,8 +3232,8 @@ def fbx_header_elements(root, scene_data, time=None):
                                     "".format(time.year, time.month, time.day, time.hour, time.minute, time.second,
                                               time.microsecond * 1000))
 
-    elem_data_single_string_unicode(root, b"Creator", "%s - %s - %d.%d.%d"
-                                          % (app_name, app_ver, addon_ver[0], addon_ver[1], addon_ver[2]))
+    elem_data_single_string_unicode(root, b"Creator", "%s - %s"
+                                          % (app_name, app_ver))
 
     # ##### Start of GlobalSettings element.
     global_settings = elem_empty(root, b"GlobalSettings")
@@ -3610,7 +3630,7 @@ def defaults_unity3d():
     }
 
 
-def save(operator, context,
+def x4ue_save(operator, context,
          filepath="",
          use_selection=False,
          use_visible=False,
